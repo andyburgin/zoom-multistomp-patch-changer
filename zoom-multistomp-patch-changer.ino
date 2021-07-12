@@ -11,8 +11,6 @@
 // - OneButton ( https://github.com/mathertel/OneButton )
 // ----------------------------------------------------------------------------
 #include "debug.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <Usb.h>
 #include <usbh_midi.h>
 #include <OneButton.h>
@@ -61,9 +59,6 @@ bool 				_cancelScroll = false;
 OneButton 			_btNext(PIN_BUTTON_PREV, true);
 OneButton 			_btPrev(PIN_BUTTON_NEXT, true);
 
-// display stuff
-Adafruit_SSD1306 	_display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, PIN_OLED_RESET);
-
 // device stuff
 int8_t              _currentPatch = 0;
 char                _currentPatchName[11] = {0};
@@ -92,9 +87,7 @@ void setup() {
     dprintinit(115200);
 
     // peripheral init
-    initDisplay();
     initDevice();
-    updateDisplay();
 
     // button init
     _btNext.attachPressStart([]() {
@@ -157,7 +150,6 @@ void incPatch(int8_t aOffset) {
     sendPatch();
     requestPatchData();
     enableEditorMode(false);
-    updateDisplay();
 }
 
 
@@ -211,8 +203,6 @@ void readResponse(bool aIsSysEx = true) {
 // ----------------------------------------------------------------------------
 void initDevice() {
     _usb.Init();
-
-	updateDisplay(F(" USB INIT "), 0, 0);
         
     int state = 0; 
     int rcode = 0;
@@ -280,13 +270,6 @@ void initDevice() {
     dprint(F("PATCH LEN: "));
     dprintln(_patchLen);
 
-    _display.clearDisplay();
-    _display.setCursor(0, 0);
-    _display.println(device_name);
-    _display.setCursor(0, 16);
-    _display.println(fw_version);
-    _display.display();
-
     enableEditorMode(true);
     requestPatchIndex();
     requestPatchData();
@@ -353,15 +336,9 @@ void toggleTuner() {
 	_tunerEnabled = !_tunerEnabled;
 	TU_PAK[2] = _tunerEnabled ? 0x41 : 0x0;
     sendBytes(TU_PAK);
-	if(_tunerEnabled) {
-    	updateDisplay(F(" TUNER ON "), 0, 0);
-	}
-    else {
-    	updateDisplay();
-    	// this flag will prevent patch scrolling 
-    	// if buttons are released not quite simultaneously
+	if(!_tunerEnabled) {
     	_cancelScroll = true;
-    }
+  }
 }
 
 
@@ -373,40 +350,6 @@ void sendPatch() {
     _usb.Task();
     PC_PAK[1] = _currentPatch;
     _midi.SendData(PC_PAK);
-}
-
-
-// ----------------------------------------------------------------------------
-// DISPLAY HELPERS
-// ----------------------------------------------------------------------------
-void initDisplay() {
-    if(!_display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
-        dprintln(F("SSD1306 allocation failed"));
-    }
-    _display.setTextSize(2);
-    _display.setTextColor(SSD1306_WHITE);
-}
-
-
-void updateDisplay() {
-    uint8_t p = _currentPatch + 1;
-    _display.clearDisplay();
-    _display.setCursor(0, 0);
-    _display.println(_currentPatchName);
-    _display.setCursor(100, 16);
-    if (p < 10) {
-        _display.print("0");  
-    }
-    _display.println(p);
-    _display.display();
-}
-
-
-void updateDisplay(const __FlashStringHelper * aMessage, uint16_t aX, uint16_t aY) {
-    _display.clearDisplay();
-    _display.setCursor(aX, aY);
-    _display.println(aMessage);
-    _display.display();
 }
 
 
